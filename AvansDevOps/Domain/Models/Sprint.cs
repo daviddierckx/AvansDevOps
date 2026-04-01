@@ -10,7 +10,19 @@ namespace AvansDevOps.Domain.Models
         public string Name { get; private set; }
         public DateTime StartDate { get; private set; }
         public DateTime EndDate { get; private set; }
-        public SprintStatus Status { get; private set; }
+        private SprintStatus _status;
+        public SprintStatus Status
+        {
+            get
+            {
+                AutoFinishIfExpired(DateTime.Now);
+                return _status;
+            }
+            private set
+            {
+                _status = value;
+            }
+        }
         public Developer ScrumMaster { get; private set; }
         public Pipeline Pipeline { get; private set; }
 
@@ -25,7 +37,13 @@ namespace AvansDevOps.Domain.Models
             Name = name;
             StartDate = startDate;
             EndDate = endDate;
-            Status = SprintStatus.CREATED;
+            _status = SprintStatus.CREATED;
+        }
+
+        public void AutoFinishIfExpired(DateTime currentDateTime)
+        {
+            if (_status == SprintStatus.ACTIVE && currentDateTime > EndDate)
+                _status = SprintStatus.FINISHED;
         }
 
         public void SetScrumMaster(Developer scrumMaster)
@@ -65,7 +83,8 @@ namespace AvansDevOps.Domain.Models
         {
             if (Status != SprintStatus.CREATED)
                 throw new InvalidOperationException("Sprint kan alleen gestart worden vanuit CREATED.");
-            Status = SprintStatus.ACTIVE;
+            _status = SprintStatus.ACTIVE;
+            AutoFinishIfExpired(DateTime.Now);
             Console.WriteLine("[SPRINT] '" + Name + "' gestart.");
         }
 
@@ -73,7 +92,7 @@ namespace AvansDevOps.Domain.Models
         {
             if (Status != SprintStatus.ACTIVE)
                 throw new InvalidOperationException("Sprint kan alleen afgerond worden vanuit ACTIVE.");
-            Status = SprintStatus.FINISHED;
+            _status = SprintStatus.FINISHED;
             Console.WriteLine("[SPRINT] '" + Name + "' afgerond.");
         }
 
@@ -81,7 +100,7 @@ namespace AvansDevOps.Domain.Models
         {
             if (Status == SprintStatus.ACTIVE)
                 throw new InvalidOperationException("Sprint status kan niet gewijzigd worden tijdens uitvoering.");
-            Status = newStatus;
+            _status = newStatus;
         }
 
         public void GenerateRapport(IRapportFactory rapportFactory)

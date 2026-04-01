@@ -4,7 +4,18 @@ namespace AvansDevOps.Domain.Models
 {
     public class Project
     {
-        public string Name { get; set; }
+        private string _name;
+
+        public string Name
+        {
+            get { return _name; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    throw new System.ArgumentException("Projectnaam mag niet leeg zijn.", nameof(value));
+                _name = value;
+            }
+        }
         private List<Sprint> _sprints = new List<Sprint>();
         private List<BacklogItem> _backlog = new List<BacklogItem>();
 

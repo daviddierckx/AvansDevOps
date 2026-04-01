@@ -8,9 +8,9 @@ namespace AvansDevOps.Domain.Models
     {
         public string Name { get; set; }
         public bool IsLocked { get; private set; }
-        private List<IMessageStrategy> _messages = new List<IMessageStrategy>();
+        private List<Message> _messages = new List<Message>();
 
-        public IReadOnlyList<IMessageStrategy> Messages
+        public IReadOnlyList<Message> Messages
         {
             get { return _messages.AsReadOnly(); }
         }
@@ -21,7 +21,7 @@ namespace AvansDevOps.Domain.Models
             IsLocked = false;
         }
 
-        public void AddMessage(IMessageStrategy message)
+        public void AddMessage(Message message)
         {
             if (IsLocked)
                 throw new InvalidOperationException("Thread is vergrendeld. Backlog item is afgerond.");
@@ -29,7 +29,7 @@ namespace AvansDevOps.Domain.Models
             PrintMessage(message);
         }
 
-        private void PrintMessage(IMessageStrategy message)
+        private void PrintMessage(Message message)
         {
             ConsoleColor color = HexToConsoleColor(message.GetColor());
             Console.ForegroundColor = color;

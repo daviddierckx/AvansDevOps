@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="AvansDevOps/AvansDevOps.csproj" Id="0ed63a63-d505-4d7c-93eb-a33515056bdf" />
+  <Project Path="AvansDevOps.Tests/AvansDevOps.Tests.csproj" />
 </Solution>

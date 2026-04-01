@@ -49,6 +49,7 @@
     <Compile Include="Domain\Models\Developer.cs" />
     <Compile Include="Domain\Models\DiscussionThread.cs" />
     <Compile Include="Domain\Models\IWorkItem.cs" />
+    <Compile Include="Domain\Models\Message.cs" />
     <Compile Include="Domain\Models\Project.cs" />
     <Compile Include="Domain\Models\Role.cs" />
     <Compile Include="Domain\Models\Sprint.cs" />
