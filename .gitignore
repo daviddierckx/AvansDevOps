@@ -1,0 +1,35 @@
+﻿# Build output
+bin/
+obj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docobj
+
+# Visual Studio index files (causing your error)
+*.vsidx
+*.vspscc
+*.vsscc
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Rider
+.idea/
+
+# SonarCloud
+.sonarqube/
