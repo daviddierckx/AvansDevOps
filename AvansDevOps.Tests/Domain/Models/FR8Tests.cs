@@ -40,6 +40,29 @@ namespace AvansDevOps.Tests.Domain.Models
             Assert.IsFalse(failingPipeline.LastRunSuccessful);
         }
 
+        [TestMethod]
+        public void TC8_3_PipelineZonderActionsSuccesvol()
+        {
+            Pipeline pipeline = new Pipeline("Lege Pipeline");
+            pipeline.Execute();
+
+            Assert.IsTrue(pipeline.LastRunSuccessful);
+            Assert.AreEqual(0, pipeline.Actions.Count);
+        }
+
+        [TestMethod]
+        public void TC8_4_PipelineActionsZijnBeschikbaar()
+        {
+            Pipeline pipeline = new Pipeline("P");
+            pipeline.AddAction(new BuildStrategy());
+            pipeline.AddAction(new TestStrategy());
+
+            Assert.AreEqual(2, pipeline.Actions.Count);
+            Assert.AreEqual("Build", pipeline.Actions[0].GetStrategyName());
+            Assert.AreEqual("Test", pipeline.Actions[1].GetStrategyName());
+            Assert.AreEqual("Deploy", new DeployStrategy().GetStrategyName());
+        }
+
         private class ThrowingActionStrategy : IActionStrategy
         {
             public void Execute()

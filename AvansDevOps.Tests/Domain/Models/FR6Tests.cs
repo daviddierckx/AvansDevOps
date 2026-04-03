@@ -80,6 +80,143 @@ namespace AvansDevOps.Tests.Domain.Models
             Assert.AreEqual("Testmelding", channelTwo.Sent[0].Message);
         }
 
+        [TestMethod]
+        public void TC6_4_ReadyForTestingNaarTodoBrengtDeveloperNotificatie()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer dev = new Developer("Dev Jan", Role.DEVELOPER);
+            nm.Subscribe(new DeveloperNotifier(new List<Developer> { dev }, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            Activity a = new Activity("X", "Y");
+            a.Complete();
+            item.AddActivity(a);
+
+            item.Doing();
+            item.ReadyForTesting();
+            item.ToDo(); // triggers returned_to_todo
+
+            Assert.AreEqual(1, channel.Sent.Count);
+            StringAssert.Contains(channel.Sent[0].Message, "teruggezet naar ToDo");
+            Assert.AreEqual("Dev Jan", channel.Sent[0].Recipient);
+        }
+
+        [TestMethod]
+        public void TC6_5_TesterNotifierNegeertAndereEvents()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer tester = new Developer("Tina", Role.TESTER);
+            nm.Subscribe(new TesterNotifier(new List<Developer> { tester }, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            nm.NotifyObservers("returned_to_todo", item); // TesterNotifier should ignore this
+
+            Assert.AreEqual(0, channel.Sent.Count);
+        }
+
+        [TestMethod]
+        public void TC6_6_DeveloperNotifierNegeertAndereEvents()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer dev = new Developer("Dev Jan", Role.DEVELOPER);
+            nm.Subscribe(new DeveloperNotifier(new List<Developer> { dev }, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            nm.NotifyObservers("ready_for_testing", item); // DeveloperNotifier should ignore this
+
+            Assert.AreEqual(0, channel.Sent.Count);
+        }
+
+        [TestMethod]
+        public void TC6_7_ProductOwnerObserverReageertOpSprintEvents()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer owner = new Developer("Product Owner Paul", Role.PRODUCTOWNER);
+            nm.Subscribe(new ProductOwnerObserver(owner, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            nm.NotifyObservers("sprint_released", item);
+            nm.NotifyObservers("sprint_cancelled", item);
+
+            Assert.AreEqual(2, channel.Sent.Count);
+            StringAssert.Contains(channel.Sent[0].Message, "sprint_released");
+            StringAssert.Contains(channel.Sent[1].Message, "sprint_cancelled");
+            Assert.AreEqual("Product Owner Paul", channel.Sent[0].Recipient);
+        }
+
+        [TestMethod]
+        public void TC6_8_ProductOwnerObserverNegeertAndereEvents()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer owner = new Developer("Paul", Role.PRODUCTOWNER);
+            nm.Subscribe(new ProductOwnerObserver(owner, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            nm.NotifyObservers("ready_for_testing", item);
+            nm.NotifyObservers("returned_to_todo", item);
+
+            Assert.AreEqual(0, channel.Sent.Count);
+        }
+
+        [TestMethod]
+        public void TC6_9_ScrumMasterNotifierReageertOpReturnedToTodo()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer sm = new Developer("Sam", Role.SCRUMMASTER);
+            nm.Subscribe(new ScrumMasterNotifier(sm, nm));
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            nm.NotifyObservers("returned_to_todo", item);
+
+            Assert.AreEqual(1, channel.Sent.Count);
+            Assert.AreEqual("Sam", channel.Sent[0].Recipient);
+            StringAssert.Contains(channel.Sent[0].Message, "teruggezet naar ToDo");
+        }
+
+        [TestMethod]
+        public void TC6_10_ObserverAfmeldenStoptNotificaties()
+        {
+            RecordingChannel channel = new RecordingChannel();
+            NotificationManager nm = new NotificationManager();
+            nm.AddChannel(channel);
+
+            Developer tester = new Developer("Tina", Role.TESTER);
+            TesterNotifier notifier = new TesterNotifier(new List<Developer> { tester }, nm);
+            nm.Subscribe(notifier);
+
+            BacklogItem item = new BacklogItem("Feature", "Desc", 3, nm);
+            Activity a = new Activity("X", "Y");
+            a.Complete();
+            item.AddActivity(a);
+            item.Doing();
+            item.ReadyForTesting(); // sends notification
+
+            nm.Unsubscribe(notifier);
+            item.ToDo();
+            item.Doing();
+            item.ReadyForTesting(); // should NOT notify because unsubscribed
+
+            Assert.AreEqual(1, channel.Sent.Count);
+        }
+
         private class RecordingChannel : INotificationChannel
         {
             public readonly List<RecordedNotification> Sent = new List<RecordedNotification>();

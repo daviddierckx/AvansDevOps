@@ -47,5 +47,85 @@ namespace AvansDevOps.Tests.Domain.Models
             Assert.ThrowsException<InvalidOperationException>(() =>
                 thread.AddMessage(new Message("Nieuwe reactie", new Developer("Daan", Role.DEVELOPER))));
         }
+
+        [TestMethod]
+        public void TC7_3_MessageMakenMetLegeContentWeigeren()
+        {
+            Developer dev = new Developer("Daan", Role.DEVELOPER);
+            Assert.ThrowsException<ArgumentException>(() => new Message("", dev));
+            Assert.ThrowsException<ArgumentException>(() => new Message("   ", dev));
+        }
+
+        [TestMethod]
+        public void TC7_4_MessageMakenMetNullAuteurWeigeren()
+        {
+            Assert.ThrowsException<ArgumentNullException>(() => new Message("Test", null));
+        }
+
+        [TestMethod]
+        public void TC7_5_MessageKleurenVolgensRol()
+        {
+            Developer po = new Developer("PO", Role.PRODUCTOWNER);
+            Developer sm = new Developer("SM", Role.SCRUMMASTER);
+            Developer tester = new Developer("Te", Role.TESTER);
+            Developer dev = new Developer("De", Role.DEVELOPER);
+
+            Message mPo = new Message("1", po);
+            Message mSm = new Message("2", sm);
+            Message mTester = new Message("3", tester);
+            Message mDev = new Message("4", dev);
+
+            Assert.AreEqual("#FFD700", mPo.GetColor()); // Gold
+            Assert.AreEqual("#378ADD", mSm.GetColor()); // Blue
+            Assert.AreEqual("#1D9E75", mTester.GetColor()); // Green
+            Assert.AreEqual("#FFFFFF", mDev.GetColor()); // White
+        }
+
+        [TestMethod]
+        public void TC7_6_MeerdereDiscussieThreads()
+        {
+            NotificationManager nm = new NotificationManager();
+            BacklogItem item = new BacklogItem("Item", "Desc", 3, nm);
+            DiscussionThread thread1 = new DiscussionThread("T1");
+            DiscussionThread thread2 = new DiscussionThread("T2");
+
+            item.AddDiscussionThread(thread1);
+            item.AddDiscussionThread(thread2);
+
+            Assert.AreEqual(2, item.DiscussionThreads.Count);
+        }
+
+        [TestMethod]
+        public void TC7_7_LockThreadsViaBacklogItem()
+        {
+            DiscussionThread thread1 = new DiscussionThread("T1");
+            DiscussionThread thread2 = new DiscussionThread("T2");
+
+            NotificationManager nm = new NotificationManager();
+            BacklogItem item = new BacklogItem("Item", "Desc", 3, nm);
+            item.AddDiscussionThread(thread1);
+            item.AddDiscussionThread(thread2);
+
+            item.LockThreads();
+
+            Assert.IsTrue(thread1.IsLocked);
+            Assert.IsTrue(thread2.IsLocked);
+        }
+
+        [TestMethod]
+        public void TC7_8_UnlockThreadsBlijftGelocked()
+        {
+            // Per requirement, once locked due to done, they stay locked
+            NotificationManager nm = new NotificationManager();
+            BacklogItem item = new BacklogItem("Item", "Desc", 3, nm);
+            DiscussionThread thread1 = new DiscussionThread("T1");
+            item.AddDiscussionThread(thread1);
+
+            item.LockThreads();
+            item.UnlockThreads();
+
+            Assert.IsTrue(thread1.IsLocked); // Blijft true
+        }
+
     }
 }
