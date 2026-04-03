@@ -12,7 +12,6 @@ jobs:
     name: Build and analyze (.NET Framework)
     runs-on: windows-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_SCANNER_VERSION: 11.2.0.135473
 
     steps:
@@ -47,21 +46,18 @@ jobs:
         run: |
           $nugetDir = "$env:RUNNER_TEMP\nuget"
           New-Item -ItemType Directory -Force -Path $nugetDir | Out-Null
-          Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" `
-            -OutFile "$nugetDir\nuget.exe" -UseBasicParsing
+          Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile "$nugetDir\nuget.exe" -UseBasicParsing
 
       - name: Begin SonarQube analysis
         shell: powershell
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           $exe = (Get-ChildItem "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" |
                   Select-Object -First 1).FullName
           if (-not $exe) { throw "SonarScanner.MSBuild.exe not found" }
 
-          & "$exe" begin `
-            /k:"daviddierckx_AvansDevOps" `
-            /o:"daviddierckx-1" `
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
-            /d:sonar.host.url="https://sonarcloud.io"
+          & "$exe" begin /k:"daviddierckx_AvansDevOps" /o:"daviddierckx-1" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io"
 
       - name: Restore NuGet packages
         shell: powershell
@@ -80,9 +76,11 @@ jobs:
 
       - name: End SonarQube analysis
         shell: powershell
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           $exe = (Get-ChildItem "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" |
                   Select-Object -First 1).FullName
           if (-not $exe) { throw "SonarScanner.MSBuild.exe not found" }
 
-          & "$exe" end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          & "$exe" end /d:sonar.token="$env:SONAR_TOKEN"
