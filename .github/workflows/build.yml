@@ -13,6 +13,8 @@ jobs:
     runs-on: windows-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_SCANNER_VERSION: 11.2.0.135473
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,84 +24,65 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: 'zulu'
+          distribution: zulu
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Download SonarScanner for MSBuild
+      - name: Download SonarScanner for .NET Framework
         shell: powershell
         run: |
-          $scannerDir = "$env:RUNNER_TEMP\sonar-scanner-msbuild"
-          New-Item -ItemType Directory -Force -Path $scannerDir | Out-Null
+          $version   = $env:SONAR_SCANNER_VERSION
+          $url       = "https://github.com/SonarSource/sonar-scanner-msbuild/releases/download/$version/sonar-scanner-$version-net-framework.zip"
+          $zip       = "$env:RUNNER_TEMP\sonar-scanner.zip"
+          $targetDir = "$env:RUNNER_TEMP\sonar-scanner-msbuild"
 
-          # Query GitHub API for the latest release and find the appropriate zip asset.
-          $apiUrl = "https://api.github.com/repos/SonarSource/sonar-scanner-msbuild/releases/latest"
-          # GitHub API requires a user-agent header
-          $headers = @{ 'User-Agent' = 'GitHubActions' }
-          $release = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -Headers $headers
-
-          # Debug: list available assets
-          Write-Host "Found assets:" 
-          $release.assets | ForEach-Object { Write-Host " - $($_.name)" }
-
-          # Try to find a zip asset that contains 'msbuild' in the name (case-insensitive)
-          $asset = $release.assets | Where-Object { $_.name -match '(?i)msbuild' -and $_.name -match '(?i)\.zip$' } | Select-Object -First 1
-
-          if ($asset) {
-            $zip = "$env:RUNNER_TEMP\$($asset.name)"
-            Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip -UseBasicParsing
-            Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
-          }
-          else {
-            Write-Host "No matching asset found in GitHub release - attempting SonarSource distribution URL as fallback"
-            $fallbackUrl = "https://binaries.sonarsource.com/Distribution/sonar-scanner-msbuild/sonar-scanner-msbuild.zip"
-            $zip = "$env:RUNNER_TEMP\sonar-scanner-msbuild.zip"
-            try {
-              Invoke-WebRequest -Uri $fallbackUrl -OutFile $zip -UseBasicParsing -ErrorAction Stop
-              Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
-            }
-            catch {
-              throw "Failed to download SonarScanner for MSBuild via GitHub releases and fallback URL. Assets found: $($release.assets | ForEach-Object { $_.name } -join ', ')"
-            }
-          }
+          Write-Host "Downloading SonarScanner $version..."
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          Expand-Archive -Path $zip -DestinationPath $targetDir -Force
+          Write-Host "Extracted to $targetDir"
 
       - name: Download nuget.exe
         shell: powershell
         run: |
           $nugetDir = "$env:RUNNER_TEMP\nuget"
           New-Item -ItemType Directory -Force -Path $nugetDir | Out-Null
-          $nugetExe = Join-Path $nugetDir "nuget.exe"
-          Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nugetExe -UseBasicParsing
+          Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" `
+            -OutFile "$nugetDir\nuget.exe" -UseBasicParsing
 
       - name: Begin SonarQube analysis
         shell: powershell
         run: |
-          $sonarScannerExe = (Get-ChildItem -Path "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" | Select-Object -First 1).FullName
-          if (-not $sonarScannerExe) { throw "SonarScanner.MSBuild.exe not found" }
+          $exe = (Get-ChildItem "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" |
+                  Select-Object -First 1).FullName
+          if (-not $exe) { throw "SonarScanner.MSBuild.exe not found" }
 
-          & "$sonarScannerExe" begin /k:"daviddierckx_AvansDevOps" /o:"daviddierckx-1" /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          & "$exe" begin `
+            /k:"daviddierckx_AvansDevOps" `
+            /o:"daviddierckx-1" `
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+            /d:sonar.host.url="https://sonarcloud.io"
 
       - name: Restore NuGet packages
         shell: powershell
         run: |
-          $sln = (Get-ChildItem -Path . -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          if (-not $sln) { throw "No .sln file found in repository" }
-          $nugetExe = (Get-ChildItem -Path "$env:RUNNER_TEMP\nuget" -Recurse -Filter "nuget.exe" | Select-Object -First 1).FullName
-          & "$nugetExe" restore "$sln"
+          $sln = (Get-ChildItem -Recurse -Filter "*.sln" | Select-Object -First 1).FullName
+          if (-not $sln) { throw "No .sln file found" }
+          $nuget = "$env:RUNNER_TEMP\nuget\nuget.exe"
+          & "$nuget" restore "$sln"
 
-      - name: Build solution (MSBuild)
+      - name: Build solution
         shell: powershell
         run: |
-          $sln = (Get-ChildItem -Path . -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          if (-not $sln) { throw "No .sln file found in repository" }
-          msbuild "$sln" /t:Rebuild /p:Configuration=Release
+          $sln = (Get-ChildItem -Recurse -Filter "*.sln" | Select-Object -First 1).FullName
+          if (-not $sln) { throw "No .sln file found" }
+          msbuild "$sln" /t:Rebuild /p:Configuration=Release /p:platform="Any CPU"
 
       - name: End SonarQube analysis
         shell: powershell
         run: |
-          $sonarScannerExe = (Get-ChildItem -Path "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" | Select-Object -First 1).FullName
-          if (-not $sonarScannerExe) { throw "SonarScanner.MSBuild.exe not found" }
+          $exe = (Get-ChildItem "$env:RUNNER_TEMP\sonar-scanner-msbuild" -Recurse -Filter "SonarScanner.MSBuild.exe" |
+                  Select-Object -First 1).FullName
+          if (-not $exe) { throw "SonarScanner.MSBuild.exe not found" }
 
-          & "$sonarScannerExe" end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          & "$exe" end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
