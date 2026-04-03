@@ -32,8 +32,16 @@ jobs:
         run: |
           $scannerDir = "$env:RUNNER_TEMP\sonar-scanner-msbuild"
           New-Item -ItemType Directory -Force -Path $scannerDir | Out-Null
-          $zip = "$env:RUNNER_TEMP\sonar-scanner-msbuild.zip"
-          Invoke-WebRequest -Uri "https://github.com/SonarSource/sonar-scanner-msbuild/releases/latest/download/sonar-scanner-msbuild.zip" -OutFile $zip -UseBasicParsing
+
+          # Query GitHub API for the latest release and find the appropriate zip asset.
+          $apiUrl = "https://api.github.com/repos/SonarSource/sonar-scanner-msbuild/releases/latest"
+          $release = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing
+          $asset = $release.assets | Where-Object { $_.name -like "*sonar-scanner-msbuild*.zip" } | Select-Object -First 1
+          if (-not $asset) { throw "No sonar-scanner-msbuild zip asset found in latest release" }
+
+          $zip = "$env:RUNNER_TEMP\$($asset.name)"
+          Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip -UseBasicParsing
           Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
 
       - name: Download nuget.exe
