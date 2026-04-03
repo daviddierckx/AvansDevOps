@@ -35,14 +35,35 @@ jobs:
 
           # Query GitHub API for the latest release and find the appropriate zip asset.
           $apiUrl = "https://api.github.com/repos/SonarSource/sonar-scanner-msbuild/releases/latest"
-          $release = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing
-          $asset = $release.assets | Where-Object { $_.name -like "*sonar-scanner-msbuild*.zip" } | Select-Object -First 1
-          if (-not $asset) { throw "No sonar-scanner-msbuild zip asset found in latest release" }
+          # GitHub API requires a user-agent header
+          $headers = @{ 'User-Agent' = 'GitHubActions' }
+          $release = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing -Headers $headers
 
-          $zip = "$env:RUNNER_TEMP\$($asset.name)"
-          Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip -UseBasicParsing
-          Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
+          # Debug: list available assets
+          Write-Host "Found assets:" 
+          $release.assets | ForEach-Object { Write-Host " - $($_.name)" }
+
+          # Try to find a zip asset that contains 'msbuild' in the name (case-insensitive)
+          $asset = $release.assets | Where-Object { $_.name -match '(?i)msbuild' -and $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+
+          if ($asset) {
+            $zip = "$env:RUNNER_TEMP\$($asset.name)"
+            Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
+          }
+          else {
+            Write-Host "No matching asset found in GitHub release - attempting SonarSource distribution URL as fallback"
+            $fallbackUrl = "https://binaries.sonarsource.com/Distribution/sonar-scanner-msbuild/sonar-scanner-msbuild.zip"
+            $zip = "$env:RUNNER_TEMP\sonar-scanner-msbuild.zip"
+            try {
+              Invoke-WebRequest -Uri $fallbackUrl -OutFile $zip -UseBasicParsing -ErrorAction Stop
+              Expand-Archive -Path $zip -DestinationPath $scannerDir -Force
+            }
+            catch {
+              throw "Failed to download SonarScanner for MSBuild via GitHub releases and fallback URL. Assets found: $($release.assets | ForEach-Object { $_.name } -join ', ')"
+            }
+          }
 
       - name: Download nuget.exe
         shell: powershell
