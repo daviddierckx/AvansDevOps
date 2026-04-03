@@ -61,14 +61,41 @@ jobs:
           if (-not $sln) { throw "No .sln file found" }
           & "${{ runner.temp }}\nuget\nuget.exe" restore "$sln"
 
-      - name: Build and analyze
+      - name: Begin SonarQube analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
+          ${{ runner.temp }}\sonar-scanner\dotnet-sonarscanner begin /k:"daviddierckx_AvansDevOps" /o:"daviddierckx-1" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths="${{ runner.temp }}\coverage\**\coverage.opencover.xml" /d:sonar.cs.vstest.reportsPaths="${{ runner.temp }}\testresults\**\*.trx"
+
+      - name: Build solution
+        shell: powershell
+        run: |
           $sln = (Get-ChildItem -Recurse -Filter "*.sln" | Select-Object -First 1).FullName
           if (-not $sln) { throw "No .sln file found" }
-
-          ${{ runner.temp }}\sonar-scanner\dotnet-sonarscanner begin /k:"daviddierckx_AvansDevOps" /o:"daviddierckx-1" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
           msbuild "$sln" /t:Rebuild /p:Configuration=Release /p:platform="Any CPU"
+
+      - name: Run tests with coverage
+        shell: powershell
+        run: |
+          $testProjects = Get-ChildItem -Recurse -Filter "*.csproj" | Where-Object { $_.Name -match "(?i)test" }
+          if (-not $testProjects) {
+            Write-Host "No test projects found, skipping tests"
+            exit 0
+          }
+          foreach ($proj in $testProjects) {
+            Write-Host "Running tests for $($proj.FullName)"
+            dotnet test "$($proj.FullName)" `
+              --configuration Release `
+              --collect:"XPlat Code Coverage" `
+              --results-directory "${{ runner.temp }}\coverage" `
+              --logger "trx;LogFileName=${{ runner.temp }}\testresults\results.trx" `
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          }
+
+      - name: End SonarQube analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
           ${{ runner.temp }}\sonar-scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
