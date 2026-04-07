@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run AvansDevOps",
+            "type": "clr",
+            "request": "launch",
+            "preLaunchTask": "build AvansDevOps",
+            "program": "${workspaceFolder}/AvansDevOps/bin/Debug/AvansDevOps.exe",
+            "cwd": "${workspaceFolder}/AvansDevOps/bin/Debug"
+        }
+    ]
+}

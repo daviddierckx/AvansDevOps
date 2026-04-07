@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build AvansDevOps",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/AvansDevOps.sln",
+                "-v",
+                "minimal"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "run AvansDevOps",
+            "type": "shell",
+            "command": "${workspaceFolder}/AvansDevOps/bin/Debug/AvansDevOps.exe",
+            "dependsOn": "build AvansDevOps",
+            "group": "test"
+        }
+    ]
+}
