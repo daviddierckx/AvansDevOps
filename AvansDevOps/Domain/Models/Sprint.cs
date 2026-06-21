@@ -18,10 +18,6 @@ namespace AvansDevOps.Domain.Models
                 AutoFinishIfExpired(DateTime.Now);
                 return _status;
             }
-            private set
-            {
-                _status = value;
-            }
         }
         public Developer ScrumMaster { get; private set; }
         public Pipeline Pipeline { get; private set; }
