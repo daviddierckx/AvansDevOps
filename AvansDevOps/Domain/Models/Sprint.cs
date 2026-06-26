@@ -1,26 +1,35 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using AvansDevOps.Domain.Factory;
 using AvansDevOps.Domain.Pipelines;
+using AvansDevOps.Domain.States;
 
 namespace AvansDevOps.Domain.Models
 {
+    // ============================================================
+    // STATE PATTERN — Context
+    // Sprint delegeert Start() en Finish() naar het huidige
+    // ISprintState object. Elke state bepaalt welke transities
+    // geldig zijn en gooit een exception bij ongeldige aanroepen.
+    // ============================================================
     public class Sprint
     {
         public string Name { get; private set; }
         public DateTime StartDate { get; private set; }
         public DateTime EndDate { get; private set; }
-        private SprintStatus _status;
+        public Developer ScrumMaster { get; private set; }
+        public Pipeline Pipeline { get; private set; }
+
+        private ISprintState _state;
+
         public SprintStatus Status
         {
             get
             {
                 AutoFinishIfExpired(DateTime.Now);
-                return _status;
+                return _state.GetStatus();
             }
         }
-        public Developer ScrumMaster { get; private set; }
-        public Pipeline Pipeline { get; private set; }
 
         private List<Developer> _developers = new List<Developer>();
         private List<BacklogItem> _backlog = new List<BacklogItem>();
@@ -33,13 +42,18 @@ namespace AvansDevOps.Domain.Models
             Name = name;
             StartDate = startDate;
             EndDate = endDate;
-            _status = SprintStatus.CREATED;
+            _state = new CreatedSprintState();
+        }
+
+        public void TransitionTo(ISprintState newState)
+        {
+            _state = newState;
         }
 
         public void AutoFinishIfExpired(DateTime currentDateTime)
         {
-            if (_status == SprintStatus.ACTIVE && currentDateTime > EndDate)
-                _status = SprintStatus.FINISHED;
+            if (_state.GetStatus() == SprintStatus.ACTIVE && currentDateTime > EndDate)
+                _state = new FinishedSprintState();
         }
 
         public void SetScrumMaster(Developer scrumMaster)
@@ -77,18 +91,14 @@ namespace AvansDevOps.Domain.Models
 
         public void Start()
         {
-            if (Status != SprintStatus.CREATED)
-                throw new InvalidOperationException("Sprint kan alleen gestart worden vanuit CREATED.");
-            _status = SprintStatus.ACTIVE;
+            _state.Start(this);
             AutoFinishIfExpired(DateTime.Now);
             Console.WriteLine("[SPRINT] '" + Name + "' gestart.");
         }
 
         public void Finish()
         {
-            if (Status != SprintStatus.ACTIVE)
-                throw new InvalidOperationException("Sprint kan alleen afgerond worden vanuit ACTIVE.");
-            _status = SprintStatus.FINISHED;
+            _state.Finish(this);
             Console.WriteLine("[SPRINT] '" + Name + "' afgerond.");
         }
 
@@ -96,7 +106,16 @@ namespace AvansDevOps.Domain.Models
         {
             if (Status == SprintStatus.ACTIVE)
                 throw new InvalidOperationException("Sprint status kan niet gewijzigd worden tijdens uitvoering.");
-            _status = newStatus;
+
+            switch (newStatus)
+            {
+                case SprintStatus.FINISHED:   _state = new FinishedSprintState(); break;
+                case SprintStatus.CLOSED:     _state = new ClosedSprintState(); break;
+                case SprintStatus.RELEASED:   _state = new ReleasedSprintState(); break;
+                case SprintStatus.CANCELLED:  _state = new CancelledSprintState(); break;
+                default:
+                    throw new InvalidOperationException("Ongeldige status: " + newStatus);
+            }
         }
 
         public void GenerateRapport(IRapportFactory rapportFactory)

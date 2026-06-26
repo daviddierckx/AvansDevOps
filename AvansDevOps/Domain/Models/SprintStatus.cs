@@ -4,6 +4,9 @@
     {
         CREATED,
         ACTIVE,
-        FINISHED
+        FINISHED,
+        CLOSED,
+        RELEASED,
+        CANCELLED
     }
 }

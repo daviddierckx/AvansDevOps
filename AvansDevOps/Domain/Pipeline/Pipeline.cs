@@ -6,30 +6,31 @@ namespace AvansDevOps.Domain.Pipelines
 {
     // ============================================================
     // STRATEGY PATTERN - Pipeline context
-    // Pipeline is de context klasse die een lijst van IActionStrategy
-    // objecten bevat en uitvoert. Elke strategie vertegenwoordigt
-    // een stap in de development pipeline (Build, Test, Deploy).
-    // Door strategies toe te voegen via AddAction() is de pipeline
-    // volledig configureerbaar zonder Pipeline zelf te wijzigen.
+    // Pipeline ondersteunt twee uitvoermodi:
+    // 1. Legacy: IActionStrategy-acties via Execute() (bestaand)
+    // 2. Nieuw: PipelineAction + IPipelineStrategy via ExecuteWithStrategy()
     // ============================================================
     public class Pipeline
     {
         public string Name { get; set; }
         public bool LastRunSuccessful { get; private set; }
+
         private List<IActionStrategy> _actions = new List<IActionStrategy>();
+        private List<PipelineAction> _pipelineActions = new List<PipelineAction>();
+        private IPipelineStrategy _strategy = new FastFailPipelineStrategy();
 
         public IReadOnlyList<IActionStrategy> Actions { get { return _actions.AsReadOnly(); } }
+        public IReadOnlyList<PipelineAction> PipelineActions { get { return _pipelineActions.AsReadOnly(); } }
 
-        public Pipeline(string name)
-        {
-            Name = name;
-        }
+        public Pipeline(string name) { Name = name; }
 
-        public void AddAction(IActionStrategy action)
-        {
-            _actions.Add(action);
-        }
+        public void AddAction(IActionStrategy action) { _actions.Add(action); }
 
+        public void AddPipelineAction(PipelineAction action) { _pipelineActions.Add(action); }
+
+        public void SetStrategy(IPipelineStrategy strategy) { _strategy = strategy; }
+
+        // Legacy uitvoering via IActionStrategy
         public void Execute()
         {
             Console.WriteLine("[PIPELINE] '" + Name + "' gestart...");
@@ -45,6 +46,15 @@ namespace AvansDevOps.Domain.Pipelines
                 LastRunSuccessful = false;
                 Console.WriteLine("[PIPELINE] '" + Name + "' mislukt: " + ex.Message);
             }
+        }
+
+        // Nieuwe uitvoering via PipelineAction + IPipelineStrategy
+        public bool ExecuteWithStrategy()
+        {
+            Console.WriteLine("[PIPELINE] '" + Name + "' gestart met strategie...");
+            LastRunSuccessful = _strategy.Execute(_pipelineActions);
+            Console.WriteLine("[PIPELINE] '" + Name + "' " + (LastRunSuccessful ? "succesvol." : "mislukt."));
+            return LastRunSuccessful;
         }
     }
 }

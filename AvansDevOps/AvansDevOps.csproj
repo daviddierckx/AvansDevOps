@@ -46,6 +46,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Domain\Factory\RapportFactory.cs" />
+    <Compile Include="Domain\Factory\SprintFactory.cs" />
+    <Compile Include="Domain\Pipelines\PipelineAction.cs" />
+    <Compile Include="Domain\Pipelines\PipelineStrategy.cs" />
+    <Compile Include="Domain\Report\ReportExporter.cs" />
+    <Compile Include="Infrastructure\ScmProviders.cs" />
     <Compile Include="Domain\Models\Activity.cs" />
     <Compile Include="Domain\Models\BacklogItem.cs" />
     <Compile Include="Domain\Models\Developer.cs" />
@@ -64,7 +69,9 @@
     <Compile Include="Domain\States\IBacklogItemState.cs" />
     <Compile Include="Domain\Strategy\MessageStrategy.cs" />
     <Compile Include="Domain\Strategy\PipelineStrategies.cs" />
+    <Compile Include="Domain\States\SprintStates.cs" />
     <Compile Include="Infrastructure\BacklogRepository.cs" />
+    <Compile Include="Infrastructure\NotificationObservers.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
